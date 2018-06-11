@@ -11,85 +11,35 @@
 |
 */
 
-//Route::get('/', 'Auth\\LoginController@login');
-
-Route::group([
-    'prefix' => 'back',
-    'namespace' => 'Back',
-    'middleware' => 'auth',
-], function () {
-        #主站######列表##########################################################################################
-        //列表--控制面板 //搜索
-        Route::get('index', 'AdminController@index')->name('index');
-        //审核通过
-        Route::get('list', 'AdminController@list')->name('vodList');
-        //修改页展示数据
-        Route::get('edit/{id}', 'AdminController@edit')->name('vodEdit');
-        //修改数据
-        Route::post('update/{id}', 'AdminController@update')->name('vodUpdate');
-        //删除
-        Route::get('delete/{id}', 'AdminController@delete')->name('vodDel');
-        //回复数据
-        Route::get('recover/{id}', 'AdminController@recover')->name('vodRecover');
-        Route::get('status/{id}', 'AdminController@status')->name('vodStatus');
-        //上下架
-        Route::get('above/{id}', 'AdminController@above')->name('vodAbove');
-        Route::get('below/{id}', 'AdminController@below')->name('vodBelow');
-        #子站######列表##########################################################################################
-        //子站列表
-        Route::get('sonindex','SonController@sonIndex')->name('sonIndex');
-        //添加列表
-        Route::get('sonaddlist','SonController@sonAddList')->name('sonAddList');
-        //数据入库
-        Route::post('sonadd','SonController@sonAdd')->name('sonAdd');
-        //编辑
-        Route::get('sonedit/{id}','SonController@sonEdit')->name('sonEdit');
-        //编辑入库
-        Route::post('sonupdate/{id}','SonController@sonUpdate')->name('sonUpdate');
-        //删除
-        Route::get('sondelete/{id}','SonController@sonDelete')->name('sonDelete');
-        Route::get('sonstatus/{id}', 'SonController@sonStatus')->name('sonStatus');
-
-        #任务######列表##########################################################################################
-        Route::get('taskindex','TaskController@taskIndex')->name('taskIndex');
-        //进行任务
-        Route::get('tasklist','TaskController@taskList')->name('taskList');
-        //任务状态
-        Route::get('taskedit/{id}','TaskController@taskEdit')->name('taskEdit');
-        //完成删除
-        Route::get('taskdelete/{id}','TaskController@taskDelete')->name('taskDelete');
-        //新任务
-        Route::get('tasknew/{id}','TaskController@taskNew')->name('taskNew');
-        //任务点击采集
-        Route::get('taskgather/{id}','TaskController@taskGather')->name('taskGather');
-        //任务采集到的视屏展示
-        Route::get('taskvod','TaskController@taskVod')->name('taskVod');
-        //发送采集审核数据信息.
-        Route::get('taskcheck/{id}','TaskController@taskCheck')->name('taskCheck');
-});
-
-Auth::routes();
-Route::get('/', 'HomeController@index')->name('home');
+// Route::get('/{url}', 'Caiji\CaijiController@apis');
+Route::get('zuidazy', 'Caiji\resourceController@zuidazy');
+Route::get('yongjiuzy', 'Caiji\resourceController@yongjiuzy');
+Route::get('mgtv', 'Caiji\mgtvController@collection_mgtv');
+Route::get('qqtv', 'Caiji\qqtvController@qqtv');
 
 
-//测试用curl用
-Route::group([
-    'prefix' => 'code/api',
-    'namespace' => 'Code\api',
-],function(){
-//    Route::post('crl','AddController@ceshi')->name('ceShi');
-    Route::post('test','AddController@httpAdd')->name('test'); //审核通过接口
-    Route::post('edit','AddController@editApi')->name('edit'); //编辑接口
-    Route::post('taskone','AddController@taskApi')->name('taskone'); //任务接口
-});
+Route::get('iqiyi', 'Caiji\IqiyiController@iqiyi');//自动采集爱奇艺视频
+Route::get('iqiyi/collection/content', 'Caiji\ContentController@collection_content');//指定采集
+// Route::get('collection/resource', 'Caiji\ContentController@collection_resource');//视频站和资源站混合资源
+Route::get('qq/collection/content', 'Caiji\ContentController@collection_qqtv');//指定腾讯视频采集
+Route::get('mgtv/collection/content', 'Caiji\ContentController@collection_mgtv');//指定芒果视频采集
+Route::get('iqiyi/auto/collection', 'Caiji\ContentController@auto_Collection');//自动采集
+
+
+Route::get('aa', 'Caiji\ContentController@aa');//自动采集
+
+
+// Route::get('iqiyi/auto/update_time', 'Caiji\ContentController@get_update');
+Route::get('resource', 'Caiji\ContentController@get_all_resource');//获取的入库资源站数据
+Route::get('find_name', 'Caiji\ContentController@get_find_name');//根据名称查询入库
+
+// Route::get('a', 'Caiji\IqiyiController@iqiyi');
+Route::get('{maxpage?}', 'Caiji\CaijiController@auto_apis');
 Route::group([
     'prefix' => 'caiji',
     'namespace' => 'Caiji',
 ],function(){
-    Route::get('/{page}','CollectionCotontroller@insert_into')->name('/{page}'); //恢复视频源
-    Route::post('jieApi','CollectionCotontroller@searchNameAllDate')->name('jieApi'); //根据数据名称采集相关的数据
-    Route::get('delDate/id/{id}','CollectionCotontroller@delDate')->name('delDate'); //删除视频源
-    Route::get('recoveryData/id/{id}/downurl/{downurl}','CollectionCotontroller@recoveryData')->name('recoveryData'); //恢复视频源
+   Route::get('/auto','CaijiController@apis')->name('/auto');
+   Route::post('/auto','CaijiController@apis')->name('/auto');
+   // Route::get('a','CaijiController@auto_apis')->name('a');
 });
-
-// 263@http://33uudy.com/?m=vod-detail-id-16711.html

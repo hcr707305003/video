@@ -13,7 +13,12 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        //
+        Commands\caiji::class,
+        Commands\iqiyi::class,
+        Commands\mgtv::class,
+        Commands\qqtv::class,
+        Commands\auto::class,
+        Commands\match::class,
     ];
 
     /**
@@ -29,14 +34,12 @@ class Kernel extends ConsoleKernel
     }
 
     /**
-     * Register the commands for the application.
+     * Register the Closure based commands for the application.
      *
      * @return void
      */
     protected function commands()
     {
-        $this->load(__DIR__.'/Commands');
-
         require base_path('routes/console.php');
     }
 }

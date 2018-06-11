@@ -51,7 +51,7 @@ return [
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'strict' => true,
-            'engine' => 'MyISAM ',
+            'engine' => null,
         ],
 
         'pgsql' => [
@@ -100,7 +100,7 @@ return [
     |
     | Redis is an open source, fast, and advanced key-value store that also
     | provides a richer set of commands than a typical key-value systems
-    | such as APC or Memcached. Laravel makes it easy to dig rights.blade.php in.
+    | such as APC or Memcached. Laravel makes it easy to dig right in.
     |
     */
 

@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Inspiring;
-
+use App\Http\Controllers\Caiji;
 /*
 |--------------------------------------------------------------------------
 | Console Routes
