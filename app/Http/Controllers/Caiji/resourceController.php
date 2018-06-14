@@ -113,6 +113,8 @@ class resourceController extends Controller
 		return '暂无数据!';
     }
 
+
+    //永久资源网站
     public function yongjiuzy($name = "")
     {
     	$name = empty($name)?$_REQUEST['name']:$name;
@@ -190,5 +192,68 @@ class resourceController extends Controller
     		}
     	} 
     	return '暂无数据!';
+    }
+
+    //01资源网
+    public function youkuzy($name = "")
+    {
+    	$name = empty($name)?$_REQUEST['name']:$name;
+    	if (!$name) {
+    		return "暂无数据!";
+    	}
+    	$post_data = [
+				'wd' => $name
+		];
+		$url = "http://youkuzy.com";
+    	$path = $url.'/index.php?m=vod-search';
+    	$arr_data = [];
+    	$content = $this->caiji->ff_file_get_contents($path, $post_data);
+    	if ($content) {
+    		preg_match_all('/<li><span class=[\'|\"]tt.*?<\/li>/ism', $content, $all_li);
+    		foreach ($all_li[0] as $key => $li) {
+    			preg_match('/<span class=[\'|\"]xing_vb4.*?<\/span>/ism', $li, $video_name);
+    			$video_name = explode(" ", strip_tags($video_name[0]));
+    			if ($video_name[0] == $name) {
+    				$arr_data['name'] = $video_name[0];
+    				$arr_data['state'] = $video_name[1];
+    				preg_match('/<a href=[\'|\"](.+?)[\'|\"]/', $li, $href);
+    				$arr_data['downurl'] = $url.$href['1'];
+    				$downurl = $this->caiji->ff_file_get_contents($arr_data['downurl']);
+    				if ($downurl) {
+    					preg_match('/<label>.*?<\/label>/', $downurl, $score);
+    					$arr_data['score'] = isset($score[0])?strip_tags($score[0]):"";
+    					preg_match('/<div class=[\'|\"]vodinfobox.*?<\/div>/ism', $downurl, $detail);
+    					if ($detail) {
+    						preg_match_all('/<li>.*?<\/li>/ism', $detail[0], $li);
+    						$arr_data['subname'] = strip_tags($li[0][0]);
+							$arr_data['director'] = strip_tags($li[0][1]);
+							$arr_data['actor'] = strip_tags($li[0][2]);
+							$arr_data['class'] = strip_tags($li[0][3]);
+							$arr_data['type_name'] = strip_tags($li[0][3]);
+							$arr_data['area'] = strip_tags($li[0][4]);
+							$arr_data['lang'] = strip_tags($li[0][5]);
+							$arr_data['year'] = strip_tags($li[0][6]);
+							$arr_data['last'] = strip_tags($li[0][7]);
+    					}
+    					preg_match('/<span class=[\'|\"]more.*?<\/span>/ism', $downurl, $des);
+    					$arr_data['des'] = isset($des[0])?trim(strip_tags($des[0])):"";
+    					preg_match('/<!--播放类型开始>(.+?)<播放类型结束-->/', $downurl, $playfrom);
+    					$arr_data['playfrom'] = isset($playfrom[1])?trim($playfrom[1], '$$$'):"";
+    					preg_match('/<!--播放地址开始>(.+?)<播放地址结束-->/', $downurl, $dd);
+    					$arr_data['dd'] = isset($dd[1])?str_replace('<br>', "\r", trim($dd[1], '$$$')):"";
+						// var_dump($dd);
+						// var_dump($arr_data);
+    					return $arr_data;
+    				} else {
+	    				return "暂无数据!";
+    				}
+    			} else {
+	    			continue;
+    			}
+    		}
+    		return "暂无数据!";
+    	} else {
+    		return "暂无数据!";
+    	}
     }
 }

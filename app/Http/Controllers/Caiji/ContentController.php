@@ -58,16 +58,34 @@ class ContentController extends Controller
   //   	})->where('status', '=', 5)/*->where('name', '=', '泡沫之夏')*/->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl'])->toarray();
     	$update_all_data = DB::table('vods')->where(function ($query) use ($keyword) {
         	$query->where('up_time', '<', date('Y-m-d H:i:s', time()))->orWhere('up_time', '=', null);
-    	})->limit(10)->where('status', '=', 5)/*->where('name', '=', '真正的脑洞')*/->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl']);
-    	
+    	})->limit(5)->where(function ($query) use ($keyword) {
+        	$query->where('load_status', '=', null)->orWhere('load_status', '!=', 2);
+    	})->where('status', '=', 5)/*->where('note', '=', '高清')*/  /*->where('name', 'like', '别惹流氓兔马修')*/->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl']);
+
+    	// var_dump($update_all_data);die;
     	$this->foreach_all_array($update_all_data);
 	}
+
+	//人工新增的资源站不被覆盖
 
 	/*遍历所有数组并更新入库*/
 	private function foreach_all_array($update_all_data)
 	{
+		//获取到原先的视频数据
+		foreach ($update_all_data as $key => $value) {
+			$resource_dd_and_playfrom[] = [
+				explode("$$$", $value->playfrom),
+				explode('$$$', $value->dd)
+			];
+    	}
+
 		//遍历数组获取条数
     	foreach ($update_all_data as $key => $value) {
+    		//判断是否为php页面，是的话就跳到下一个视频
+    		preg_match('/http.*?php/', $value->downurl, $php);
+    		if ($php) {
+    			continue;
+    		}
 
     		// ==========================================
     		// 一开始执行的就修改时间，不然会卡住
@@ -123,7 +141,7 @@ class ContentController extends Controller
 					if ($collection) {
 						$type_name_find_all_data = $this->get_all_resource($collection['name']);
 						if ($type_name_find_all_data) {
-							foreach ($type_name_find_all_data as $key => $values) {
+							foreach ($type_name_find_all_data as $k => $values) {
 								if ($values['dd']) {
 									$collection['playfrom'] = $collection['playfrom']."$$$".$values['playfrom'];
 									$collection['dd'] = $collection['dd']."$$$".$values['dd'];
@@ -162,10 +180,12 @@ class ContentController extends Controller
 									} else {
 										$data['load_status'] = 0;
 									}
-									$data['up_time'] = date('Y-m-d H:i:s', time()+30*60);									
+									$data['up_time'] = date('Y-m-d H:i:s', time()+30*60);							
+									// var_dump($data);die;
 									// Log::info("ID:".$value->id." Name:".$value->name); 
+									$resource_data = $this->match_dd_and_playfrom($resource_dd_and_playfrom, $data, $key);
 
-									DB::table('vods')->where('id', '=', $value->id)->update($data);
+									DB::table('vods')->where('id', '=', $value->id)->update($resource_data);
 									// ==============================================						
 
 
@@ -184,7 +204,7 @@ class ContentController extends Controller
 								preg_match('/<h2.*?<\/h2>/', $aa, $resource_name);
 								if ($resource_name) {
 									$type_name_find_all_data = $this->get_all_resource(strip_tags($resource_name[0]));
-									foreach ($type_name_find_all_data as $key => $values) {
+									foreach ($type_name_find_all_data as $ks => $values) {
 										if ($values['dd']) {
 											$collection['playfrom'] = $collection['playfrom']."$$$".$values['playfrom'];
 											$collection['dd'] = $collection['dd']."$$$".$values['dd'];
@@ -208,8 +228,9 @@ class ContentController extends Controller
 												$data['load_status'] = 0;
 											}
 											$data['up_time'] = date('Y-m-d H:i:s', time()+30*60);
-											// Log::info("ID:".$value->id." Name:".$value->name);  
-											DB::table('vods')->where('id', '=', $value->id)->update($data);
+											// Log::info("ID:".$value->id." Name:".$value->name); 
+											$resource_data = $this->match_dd_and_playfrom($resource_dd_and_playfrom, $data, $key);
+											DB::table('vods')->where('id', '=', $value->id)->update($resource_data);
 											$this->ff_file_get_contents($url = 'http://haoniux.com/code/api/test', $post_data = ['id' => intval($value->id)]);
 										} else {
 											continue;
@@ -226,7 +247,8 @@ class ContentController extends Controller
 								$data['dd'] = $collection['dd'];
 								$data['dd_str'] = mb_strlen($collection['dd']);
 								$data['up_time'] = date('Y-m-d H:i:s', time()+30*60);
-								if (DB::table('vods')->where('id', '=', $value->id)->update($data)) {
+								$resource_data = $this->match_dd_and_playfrom($resource_dd_and_playfrom, $data, $key);
+								if (DB::table('vods')->where('id', '=', $value->id)->update($resource_data)) {
 									$this->ff_file_get_contents($url = 'http://haoniux.com/code/api/test', $post_data = ['id' => intval($value->id)]);
 									echo "success";
 								} else {
@@ -245,6 +267,51 @@ class ContentController extends Controller
 	}
 
 	/*
+	 * 匹配更新和历史的dd和playfrom
+	 *判断是否是手动新增的playfrom并判断dd是否和playfrom时候对应一致
+	**/
+	private function match_dd_and_playfrom($resource_dd_and_playfrom, $data, $key)
+	{
+		//获取到更新之前的资源
+		$resource_playfrom = $resource_dd_and_playfrom[$key][0];
+		$resource_dd = $resource_dd_and_playfrom[$key][1];
+		// var_dump($resource_playfrom);
+		// var_dump($resource_dd);
+		// var_dump($data);die;
+		//获取到更新之后的dd和playfrom
+		$playfrom =	explode("$$$", $data['playfrom']);
+		$dd = explode('$$$', $data['dd']);
+
+		$array = array();	
+		//判断playfrom是否相等
+		if (count($resource_playfrom) == count($resource_dd)) {
+			if (count($resource_playfrom) > count($playfrom)) {
+				for ($i=0; $i < count($resource_playfrom); $i++) { 
+					if (in_array($resource_playfrom[$i], $playfrom)) {
+						continue;
+					} else {
+						$array[] = [
+							'key' => $i,
+							'playfrom' => $resource_playfrom[$i]
+						];
+					}
+				}
+				// var_dump($array);die;
+				for ($i=0; $i < count($array); $i++) { 
+					$data['playfrom'] = $data['playfrom']."$$$".$array[$i]['playfrom'];
+					$data['dd'] = $data['dd']."$$$".$resource_dd[$array[$i]['key']];
+				}
+				return $data;
+			} else {
+				return $data;
+			}
+		} else {
+			return $data;
+		}
+	}
+
+
+	/*
 	 * 资源站是否与官网更新速度一致
 	 *
 	 */
@@ -253,8 +320,9 @@ class ContentController extends Controller
 		//查询需要更新的条数
     	$update_all_data = DB::table('vods')->where(function ($query) use ($keyword) {
         	$query->where('up_time', '<', date('Y-m-d H:i:s', time()))->orWhere('up_time', '=', null);
-    	})->limit(10)->where('status', '=', 5)/*->where('name', '=', '真正的脑洞')*/->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl']);
-    	
+    	})->limit(10)->where('status', '=', 5)->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl']);
+
+    	// var_dump($update_all_data);die;
     	//判断资源站的集数是否和官网的集数匹配
     	// 开始=========================
     	$save_the_update_data = array();
@@ -262,20 +330,18 @@ class ContentController extends Controller
     		$all_li_count = array();
     		foreach ($update_all_data as $key => $value) {
     			$array = explode("$$$", $value->dd);
+    			$match_resource_video = count(explode("\r", $array[0]));
+    			// var_dump($match_resource_video);die;
     			for ($i=0; $i < count($array); $i++) { 
-    				$arr_video_li = explode('#', trim(str_replace("\r", '#', $array[$i]), '#'));
-    				$all_li_count[] = count($arr_video_li);
+    				$resource_video = count(explode("\r", trim($array[$i], "\r")));
+    				if ($resource_video > $match_resource_video) {
+    					$save_the_update_data[] = $value;
+    					break;
+    				}
     			}
-				for ($i=0; $i < count($all_li_count); $i++) { 
-					if ($all_li_count[0] <= $all_li_count[$i]) {
-						continue 2;
-					} else {
-						$save_the_update_data[] = $value;
-						continue 2;
-					}
-				}
     		}
     	}
+    	// var_dump($save_the_update_data);die;
     	// =============================
     	// $save_the_update_data里面存放在匹配失败的影片
     	if ($save_the_update_data) {
@@ -299,6 +365,11 @@ class ContentController extends Controller
 		} else if ($pasurl['host'] == "www.mgtv.com") {
 			$playfrom = 'mgtv';
 			$content = $this->collection_mgtv($url);
+			$content['playfrom'] = $playfrom;
+			return $content;
+		} else if ($pasurl['host'] == "zuidazy.com" || $pasurl['host'] == "www.zuidazy.com") {
+			$playfrom = 'zuidazy';
+			$content = $this->collection_zuidazy($url);
 			$content['playfrom'] = $playfrom;
 			return $content;
 		} else {
@@ -342,6 +413,7 @@ class ContentController extends Controller
 	//腾讯采集
 	public function collection_qqtv($url = "")
 	{
+
 		$url = empty($url)?$_REQUEST['url']:$url;
 		$data = array();
 		$data['downurl'] = $url;
@@ -455,14 +527,11 @@ class ContentController extends Controller
 					continue;
 				}
 			}
-			foreach ($year[0] as $key => $value) {
-				preg_match('/[更新]时间/', $value, $value1);
-				if ($value1) {
-					$data['last'] = trim(explode(':',trim(strip_tags($value)))[1]);
-				} else {
-					continue;
-				}
+			preg_match('/<meta itemprop=[\'|\"]uploadDate[\'|\"].*?content=[\'|\"](.+?)[\'|\"]/', $content, $value1);
+			if ($value1) {
+				$data['last'] = $value1[1];
 			}
+
 			foreach ($year[0] as $key => $value) {
 				preg_match('/总集数/', $value, $value1);
 				if ($value1) {
@@ -496,9 +565,6 @@ class ContentController extends Controller
 				preg_match_all('/<a href=[\'|\"](.+?)[\'|\"].*?<\/a>/ism', $dd[0], $dd1);
 				for ($i=0; $i < count($dd1[0]); $i++) {
 					preg_match('/srcset/', $dd1[0][$i], $pds);
-					if (isset($pds[0])) {
-						continue;
-					} 
 					$data['dd'] = $data['dd'].trim(strip_tags($dd1[0][$i]))."$".$dd1[1][$i]."\r";
 				}
 			} else {
@@ -526,6 +592,7 @@ class ContentController extends Controller
 		}
 		$data['up_time'] = date("Y-m-d H:i:s", time());
 		$data['dd'] = trim($data['dd'], '\r');
+		// var_dump($data);die;
 		return $data;
 	}
 
@@ -582,6 +649,7 @@ class ContentController extends Controller
 		//没被芒果禁ip的操作
 		$url = empty($url)?$_REQUEST['url']:$url;
 		$content = $this->ff_file_get_contents($agent_ip.$url);
+		// var_dump($content);die;
 		$data = array();
 		preg_match('/<head.*?<\/head>/ism', $content, $a);
 		if (!$a) return '页面无法获取，请重新获取';
@@ -710,23 +778,91 @@ class ContentController extends Controller
 				$page_data = $this->ff_file_get_contents($video_url."&page=".$i);
 				if ($page_data) {
 					$page_data = json_decode($page_data);
+					// var_dump($page_data);die;
 					if ($page_data->data->list) {
+						// var_dump($page_data->data->list);die;
 						$url = 'https://www.mgtv.com';
 						foreach ($page_data->data->list as $key => $value) {
-							if ($value->isvip == 0) {
-								continue;
-							}
 							$data['dd'] = $data['dd'].$value->t4."$".$url.$value->url."\r";
+							$data['last'] = $value->ts;
 						}
 
 					}
 				}
 			}
-			$date['up_time'] = date('Y-m-d H:i:s', time());
-			$data['dd'] = rtrim($data['dd'], '\r');
+			$data['dd'] = rtrim($data['dd'], "\r");
 		}
+		$data['up_time'] = date('Y-m-d H:i:s', time());
+		// var_dump($data);die;
 		return $data;
 	}
+
+	//最大资源网采集
+	public function collection_zuidazy($url = "")
+	{
+		$url = empty($url)?$_REQUEST['url']:$url;
+		//获取详情页
+		$detail = $this->ff_file_get_contents($url);
+		if (!$detail) {
+			return "暂无数据,请重新刷新页面!";
+		}
+		//获取封面图
+		preg_match('/<img class=[\'|\"]lazy[\'|\"] src=[\'|\"](.+?)[\'|\"].*?>/', $detail, $d);
+		if (isset($d[1])) {
+			$arr_data['pic'] = parse_url($d[1])['host']?$d[1]:$url.$d[1];
+		}
+
+		//获取到ul数据
+		preg_match('/<div class=[\'|\"]vodinfobox.*?<\/div>/ism', $detail, $ul);
+		if ($ul) {
+			preg_match_all('/<li.*?<\/li>/ism', $ul[0], $li);
+			$arr_data['subname'] = strip_tags($li[0][0]);
+			$arr_data['actor'] = strip_tags($li[0][1]);
+			$arr_data['director'] = strip_tags($li[0][2]);
+			$arr_data['class'] = strip_tags($li[0][3]);
+			$arr_data['area'] = strip_tags($li[0][4]);
+			$arr_data['lang'] = strip_tags($li[0][5]);
+			$arr_data['year'] = strip_tags($li[0][6]);
+			$arr_data['long'] = strip_tags($li[0][7]);
+			$arr_data['last'] = strip_tags($li[0][8]);
+			$arr_data['hit'] = strip_tags($li[0][9]);
+			$arr_data['dayhits'] = strip_tags($li[0][10]);
+		}
+
+		//获取所有地址
+		preg_match_all('/<div class=[\'|\"]vodplayinfo.*?<\/div>/ism', $detail, $data);
+		if ($data) {
+			//获取简介
+			$arr_data['des'] = strip_tags($data[0][1]);
+		}
+
+		//获取所有播放源
+		preg_match_all('/<div id=[\'|\"]play_.*?<\/div>/ism', $detail, $e);
+		if ($e[0]) {
+			foreach ($e[0] as $key => $value) {
+				//获取标识
+				preg_match('/<h3.*?<\/h3>/ism', $value, $f);
+				$f = explode("：",strip_tags($f[0]))[1];
+				$arr_data['playfrom'][] = $f;
+
+				//获取播放地址
+				preg_match('/<ul.*?<\/ul>/ism', $value, $g);
+				if ($g) {
+					// var_dump($g);die;
+					preg_match_all('/<li.*?<\/li>/ism', $g[0], $h);
+					if ($h[0]) {
+						$a = implode("\r", $h[0]);
+						$arr_data['dd'][] = strip_tags($a);
+					}
+					// $arr_data['dd'] = $arr_data['dd'].strip_tags($dd[0])."\r";
+				}
+			}
+		}
+		$arr_data['dd'] = implode("$$$", $arr_data['dd']);
+		$arr_data['playfrom'] = implode("$$$", $arr_data['playfrom']);
+		return $arr_data;
+	} 
+
 
 	//获取更新时间
 	public function get_reweek($content = "")
@@ -752,6 +888,7 @@ class ContentController extends Controller
 		$resource = new resourceController();
 		$zuidazy = $resource->zuidazy($name);
 		$yongjiuzy = $resource->yongjiuzy($name);
+		$youkuzy = $resource->youkuzy($name);
 		/*var_dump($zuidazy);
 		var_dump($yongjiuzy);
 		die;*/
@@ -760,6 +897,9 @@ class ContentController extends Controller
 		}
 		if ($yongjiuzy != '暂无数据!') {
 			$array[] = $yongjiuzy;
+		}
+		if ($youkuzy != '暂无数据!') {
+			$array[] = $youkuzy;
 		}
 		return $array;
 	}
@@ -834,10 +974,6 @@ class ContentController extends Controller
 		// echo $albumId;
 		// echo $sourceid;
 		// die;
-		$a = 1108;
-		$b = 605;
-		$c = 530;
-		$d = 214;
 		if (!$albumId && !$state) {
 			return "";
 		}
@@ -913,12 +1049,26 @@ class ContentController extends Controller
 						//第四层判断结束================================
 
 						if ($arr_data == "") {
+							//第五层判断================================
+							$url = 'http://cache.video.iqiyi.com/jp/sdvlst/latest?key=sdvlist&sourceId='.$sourceid.'&tvYear=2018';
+							$content = json_decode(ltrim($this->ff_file_get_contents($url), "var tvInfoJs="))->data;
+							$year = date('Y', time());
+							$content = $content->$year->data;
+							foreach ($content as $key => $value) {
+								$arr_data .= $value->tvYear."$".$value->vUrl."\r";
+							}
+
+							//第五层判断结束================================
+							if ($arr_data == "") {
+								// 第六层判断==================================
 							// 如果还是采集不到的话，请再这里写规则
+							// die;
+								// 第六层判断结束==================================
+							}
 						}
 					}
 				}
 			}
-			// var_dump($arr_data);die;
 			return rtrim($arr_data);//返回所有dd
 		}
 	}

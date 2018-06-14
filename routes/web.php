@@ -24,9 +24,12 @@ Route::get('iqiyi/collection/content', 'Caiji\ContentController@collection_conte
 Route::get('qq/collection/content', 'Caiji\ContentController@collection_qqtv');//指定腾讯视频采集
 Route::get('mgtv/collection/content', 'Caiji\ContentController@collection_mgtv');//指定芒果视频采集
 Route::get('iqiyi/auto/collection', 'Caiji\ContentController@auto_Collection');//自动采集
+Route::get('match/resource', 'Caiji\ContentController@matching_resource_and_video_Agreement');//匹配資源站是否一致
 
-
-Route::get('aa', 'Caiji\ContentController@aa');//自动采集
+//以下是资源站请求
+Route::get('zuidazy', 'Caiji\resourceController@zuidazy');//最大资源网采集
+Route::get('yongjiuzy', 'Caiji\resourceController@yongjiuzy');//永久资源网站
+Route::get('youkuzy', 'Caiji\resourceController@youkuzy');//01资源网
 
 
 // Route::get('iqiyi/auto/update_time', 'Caiji\ContentController@get_update');
