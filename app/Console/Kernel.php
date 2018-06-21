@@ -17,6 +17,8 @@ class Kernel extends ConsoleKernel
         Commands\iqiyi::class,
         Commands\mgtv::class,
         Commands\qqtv::class,
+        Commands\sohu::class,
+        Commands\youku::class,
         Commands\auto::class,
         Commands\match::class,
     ];

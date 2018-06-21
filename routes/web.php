@@ -16,6 +16,8 @@ Route::get('zuidazy', 'Caiji\resourceController@zuidazy');
 Route::get('yongjiuzy', 'Caiji\resourceController@yongjiuzy');
 Route::get('mgtv', 'Caiji\mgtvController@collection_mgtv');
 Route::get('qqtv', 'Caiji\qqtvController@qqtv');
+Route::get('sohu', 'Caiji\sohuController@sohu');
+Route::get('youku', 'Caiji\youkuController@youku');
 
 
 Route::get('iqiyi', 'Caiji\IqiyiController@iqiyi');//自动采集爱奇艺视频
@@ -23,6 +25,8 @@ Route::get('iqiyi/collection/content', 'Caiji\ContentController@collection_conte
 // Route::get('collection/resource', 'Caiji\ContentController@collection_resource');//视频站和资源站混合资源
 Route::get('qq/collection/content', 'Caiji\ContentController@collection_qqtv');//指定腾讯视频采集
 Route::get('mgtv/collection/content', 'Caiji\ContentController@collection_mgtv');//指定芒果视频采集
+Route::get('sohu/collection/content', 'Caiji\ContentController@collection_sohu');//指定搜狐视频采集
+Route::get('youku/collection/content', 'Caiji\ContentController@collection_youku');//指定优酷视频采集
 Route::get('iqiyi/auto/collection', 'Caiji\ContentController@auto_Collection');//自动采集
 Route::get('match/resource', 'Caiji\ContentController@matching_resource_and_video_Agreement');//匹配資源站是否一致
 
