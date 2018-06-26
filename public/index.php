@@ -21,6 +21,56 @@
 
 require __DIR__.'/../bootstrap/autoload.php';
 
+
+/*
+|--------------------------------------------------------------------------
+| this is spider
+|--------------------------------------------------------------------------
+|
+| if you use spider, you will die,bu I fuyukaidesu,because I don`t like 
+|  that. You're going to be very dangerous,you have to belive me. so ,
+|  Start your trip!
+| 
+|
+*/
+
+require __DIR__ .'/../phpspider/autoloader.php';
+
+
+/*
+|--------------------------------------------------------------------------
+| this is beanbun
+|--------------------------------------------------------------------------
+|
+| Beanbun is a simple extensible crawler framework that supports the daemon 
+| pattern and the common pattern, the daemon pattern is based on the 
+| Workerman, and the Downloader is based on the Guzzle.
+| 
+|
+*/
+
+
+require __DIR__ .'/../beanbun/autoload.php';
+
+
+/*
+|--------------------------------------------------------------------------
+| this is querylist
+|--------------------------------------------------------------------------
+|
+| QueryList uses jQuery selectors to do collection, allowing you to say 
+| goodbye to complex regular expressions; QueryList has the same 
+| DOM operating capability as jQuery, Http network operation ability, 
+| chaotic code resolution, content filtering ability, and extensible
+| ability; it can easily implement such ideas as analog landing, 
+| forgery, HTTP agent and so on. Miscellaneous network requests; rich 
+| plug-ins, support for multi-threaded acquisition and collection of 
+| JavaScript dynamic rendering pages using PhantomJS.
+*/
+
+require __DIR__."/../querylist/autoload.php";
+
+
 /*
 |--------------------------------------------------------------------------
 | Turn On The Lights

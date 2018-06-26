@@ -11,13 +11,13 @@ use Log;
 
 class ContentController extends Controller
 {
-    public function __construct(){
-
-    	header("Content-type: text/html; charset=utf-8");
+    public function __construct()
+    {
 		set_time_limit(0);
 		error_reporting(0);
 		ini_set('memory_limit', '-1'); //内存无限
 		\DB::connection()->enableQueryLog(); // 开启查询日志 
+    	header("Content-type: text/html; charset=utf-8");
 	}
 
 	//视频站和资源站混合资源

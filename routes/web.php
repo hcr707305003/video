@@ -11,6 +11,18 @@
 |
 */
 
+//自动采集2345影视
+Route::get('tv_auto/{type?}', 'Caiji\TtffController@tv_auto_apis');//采集所有电视剧
+Route::get('film_auto', 'Caiji\TtffController@film_auto_apis');//采集所有电影
+Route::get('variety_auto/{type?}', 'Caiji\TtffController@variety_auto_apis');//采集所有综艺
+Route::get('comic_auto/{type?}', 'Caiji\TtffController@comic_auto_apis');//采集所有动漫
+
+
+Route::get('film_year', 'Caiji\firstCollectionController@film_year');
+Route::get('tv_year', 'Caiji\firstCollectionController@tv_year');
+Route::get('comic_year', 'Caiji\firstCollectionController@comic_year');
+
+
 // Route::get('/{url}', 'Caiji\CaijiController@apis');
 Route::get('zuidazy', 'Caiji\resourceController@zuidazy');
 Route::get('yongjiuzy', 'Caiji\resourceController@yongjiuzy');

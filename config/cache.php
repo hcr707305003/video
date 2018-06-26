@@ -27,7 +27,13 @@ return [
     | same cache driver to group types of items stored in your caches.
     |
     */
-
+    'memcached' => [
+        [
+            'host' => '127.0.0.1',
+            'port' => 11211,
+            'weight' => 100
+        ],
+    ],
     'stores' => [
 
         'apc' => [

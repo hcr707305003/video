@@ -21,6 +21,7 @@ class Kernel extends ConsoleKernel
         Commands\youku::class,
         Commands\auto::class,
         Commands\match::class,
+        Commands\ttff::class
     ];
 
     /**
